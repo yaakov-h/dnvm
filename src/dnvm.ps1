@@ -1273,7 +1273,7 @@ function dnvm-install {
                 $Version = Get-PackageVersion $BaseName
             }
             
-            if([String]::IsNullOrEmpty($Architecture)) {
+            if([String]::IsNullOrEmpty($OS)) {
                 $OS = Get-PackageOS $BaseName
             }
         } else {
@@ -1430,6 +1430,64 @@ function dnvm-install {
     Write-Progress -Status "Done" -Activity "Install complete" -Id 1 -Complete
 }
 
+<#
+.SYNOPSIS
+    Uninstalls a version of the runtime
+.PARAMETER VersionOrAlias
+    The version to uninstall from the current channel or an alias value to uninstall an alternate
+    runtime or architecture flavor of the specified alias.
+.PARAMETER Architecture
+    The processor architecture of the runtime to uninstall (default: x86)
+.PARAMETER Runtime
+    The runtime flavor to uninstall (default: clr)
+.PARAMETER OS
+    The operating system that the runtime targets (default: win)
+#>
+function dnvm-uninstall {
+    param(
+        [Parameter(Mandatory=$true, Position=0)]
+        [string]$VersionOrAlias,
+
+        [Alias("arch")]
+        [ValidateSet("", "x86", "x64", "arm")]
+        [Parameter(Mandatory=$false)]
+        [string]$Architecture = "",
+
+        [Alias("r")]
+        [ValidateSet("", "clr","coreclr","mono")]
+        [Parameter(Mandatory=$false)]
+        [string]$Runtime = "",
+
+        [ValidateSet("", "win", "osx", "darwin", "linux")]
+        [Parameter(Mandatory=$false)]
+        [string]$OS = "")
+
+    $aliasPath = Join-Path $AliasesDir "$VersionOrAlias$AliasExtension"
+    
+    if(Test-Path $aliasPath) {
+        $BaseName = Get-Content $aliasPath
+    } else {
+        $Version = $VersionOrAlias
+        $runtimeInfo = GetRuntimeInfo $Architecture $Runtime $OS $Version
+        $BaseName = $runtimeInfo.RuntimeName
+    }
+
+    $runtimeFolder = Join-Path $RuntimesDir $BaseName
+
+    if(Test-Path $runtimeFolder) {
+        Remove-Item -literalPath $runtimeFolder -Force -Recurse
+        _WriteOut "Removed '$($runtimeFolder)'"
+    } else {
+        _WriteOut "'$($runtimeFolder)' is not installed"
+    }
+
+    $aliases = Get-RuntimeAlias
+
+    $result = @($aliases | Where-Object { $_.Name.Contains($BaseName) })
+    foreach($alias in $result) {
+        dnvm-alias -Delete -Name $alias.Alias
+    }
+}
 
 <#
 .SYNOPSIS

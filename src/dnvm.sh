@@ -379,6 +379,12 @@ __dnvm_help() {
     echo ""
     echo "  adds $_DNVM_RUNTIME_SHORT_NAME bin to path of current command line"
     echo ""
+   printf "%b\n" "${Yel}$_DNVM_COMMAND_NAME uninstall <semver> [-r|-runtime <runtime>] [-a|-arch <architecture>] [-OS <OS>]${RCol}"
+    echo "  <semver>          the version to uninstall"
+    echo "  -r|-runtime       runtime to use (mono, coreclr)"
+    echo "  -a|-arch          architecture to use (x64)"
+    echo "  -OS               the operating system that the runtime targets (default:$(__dnvm_current_os)"
+    echo ""
    printf "%b\n" "${Yel}$_DNVM_COMMAND_NAME use <semver>|<alias>|<package>|none [-p|-persistent] [-r|-runtime <runtime>] [-a|-arch <architecture>] ${RCol}"
     echo "  <semver>|<alias>|<package>  add $_DNVM_RUNTIME_SHORT_NAME bin to path of current command line   "
     echo "  none                        remove $_DNVM_RUNTIME_SHORT_NAME bin from path of current command line"
@@ -578,6 +584,66 @@ dnvm()
             fi
         ;;
 
+        "uninstall" )
+            [[ $# -lt 2 ]] && __dnvm_help && return
+            shift
+
+            local versionOrAlias=
+            local runtime=
+            local architecture=
+            local os=
+            while [ $# -ne 0 ]
+            do
+                if [[ $1 == "-r" || $1 == "-runtime" ]]; then
+                    local runtime=$2
+                    shift
+                elif [[ $1 == "-a" || $1 == "-arch" ]]; then
+                    local architecture=$2
+                    shift
+                elif [[ $1 == "-OS" ]]; then
+                    local os=$2
+                    shift
+                elif [[ -n $1 ]]; then
+                    local versionOrAlias=$1
+                fi
+
+                shift
+            done
+
+            if [[ -z $os ]]; then
+                os=$(__dnvm_current_os)
+            elif [[ $os == "osx" ]]; then
+                os="darwin"
+            fi
+
+            if [[ -z $runtime ]]; then
+                runtime=$(__dnvm_os_runtime_defaults "$os")
+            fi
+
+            if [[ -z $architecture ]]; then
+                architecture=$(__dnvm_runtime_bitness_defaults "$runtime")
+            fi
+
+            # dnx-coreclr-linux-x64.1.0.0-beta7-12290
+            local runtimeFullName=$(__dnvm_requested_version_or_alias "$versionOrAlias" "$runtime" "$architecture" "$os")
+            local runtimeFolder="$_DNVM_USER_PACKAGES/$runtimeFullName"
+
+            if [[ -e $runtimeFolder ]]; then
+                rm -r $runtimeFolder
+                echo "Removed $runtimeFolder"
+            else
+                echo "$runtimeFolder is not installed"
+            fi
+
+            if [ -d "$_DNVM_ALIAS_DIR" ]; then
+                for __dnvm_file in $(find "$_DNVM_ALIAS_DIR" -name *.alias); do
+                    if [ $(cat $__dnvm_file) == "$runtimeFullName" ]; then
+                        rm $__dnvm_file
+                    fi
+                done
+            fi
+        ;;
+
         "use"|"run"|"exec" )
             [[ $1 == "use" && $# -lt 2 ]] && __dnvm_help && return
 
@@ -749,7 +815,6 @@ dnvm()
 
             # Z shell array-index starts at one.
             local i=1
-            local format="%-20s %s\n"
             if [ -d "$_DNVM_ALIAS_DIR" ]; then
                 for __dnvm_file in $(find "$_DNVM_ALIAS_DIR" -name *.alias); do
                     arr[$i]="$(basename $__dnvm_file | sed 's/\.alias//')/$(cat $__dnvm_file)"
