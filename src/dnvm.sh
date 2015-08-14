@@ -46,12 +46,19 @@ if [ -z "$DNX_USER_HOME" ]; then
     eval DNX_USER_HOME="~/$_DNVM_RUNTIME_FOLDER_NAME"
 fi
 
+if [ -z "$DNX_GLOBAL_HOME" ]; then
+    eval DNX_GLOBAL_HOME="/usr/local/lib/dnx"
+fi
+
 if [ -z "$DNX_HOME" ]; then
     # Set to the user home value
-    DNX_HOME="$DNX_USER_HOME"
+    eval DNX_HOME="$DNX_USER_HOME:$DNX_GLOBAL_HOME"
+elif [[ $DNX_HOME != *"$DNX_GLOBAL_HOME"* ]]; then
+    eval DNX_HOME="$DNX_HOME:$DNX_GLOBAL_HOME"
 fi
 
 _DNVM_USER_PACKAGES="$DNX_USER_HOME/runtimes"
+_DNVM_GLOBAL_PACKAGES="$DNX_GLOBAL_HOME/runtimes"
 _DNVM_ALIAS_DIR="$DNX_USER_HOME/alias"
 _DNVM_DNVM_DIR="$DNX_USER_HOME/dnvm"
 
@@ -183,7 +190,7 @@ __dnvm_package_arch() {
 __dnvm_package_os() {
     local runtimeFullName="$1"
     if [[ "$runtimeFullName" =~ "mono" ]]; then
-        echo "linux/darwin"
+        echo "linux/osx"
     else
         echo "$runtimeFullName" | sed "s/$_DNVM_RUNTIME_PACKAGE_NAME-[^-.]*-\([^.-]*\).*/\1/"
     fi
@@ -736,7 +743,17 @@ dnvm()
             [[ ! -d $_DNVM_USER_PACKAGES ]] && echo "$_DNVM_RUNTIME_FRIENDLY_NAME is not installed." && return 1
 
             local searchGlob="$_DNVM_RUNTIME_PACKAGE_NAME-*"
-            local runtimes="$(find $_DNVM_USER_PACKAGES -name "$searchGlob" \( -type d -or -type l \) -prune -exec basename {} \;)"
+
+            local runtimes=""
+            for location in `echo $DNX_HOME | tr ":" "\n"`; do
+                location+="/runtimes"
+                local oruntimes="$(find $location -name "$searchGlob" \( -type d -or -type l \) -prune -exec basename {} \; | sort -t. -k2 -k3 -k4 -k1)"
+                for v in `echo $oruntimes | tr "\n" " "`; do
+                    runtimes+="$v:$location"$'\n'
+                done
+#                runtimes=$runtimes | sed 's/$/${location}/'
+            done
+#printf "%s\n" "$runtimes"
 
             [[ -z $runtimes ]] && echo 'No runtimes installed. You can run `dnvm install latest` or `dnvm upgrade` to install a runtime.' && return
 
@@ -772,15 +789,23 @@ dnvm()
                 printf "$formatString" "------" "-------" "-------" "----" "---------------" "-----"
             fi
 
-            for f in `echo $runtimes  | sort -t. -k2 -k3 -k4 -k1`; do
-                local formattedHome=`(echo $_DNVM_USER_PACKAGES | sed s=$HOME=~=g)`
+echo -e "$runtimes"
+#            local formattedHome=`(echo $location | sed s=$HOME=~=g)`
+            for f in `echo -e "$runtimes"`; do
+                local location=`echo $f | tr ":" "\n"`
+                local f2="${location[0]}"
+printf "%s\n" "$f2"
+                location=${location[1]}
+#printf "%s\n" "$location"
+                local formattedHome=$location
+# | sed s=$HOME=~=g)`
                 local active=""
-                [[ $PATH == *"$_DNVM_USER_PACKAGES/$f/bin"* ]] && local active="  *"
-                local pkgRuntime=$(__dnvm_package_runtime "$f")
-                local pkgName=$(__dnvm_package_name "$f")
-                local pkgVersion=$(__dnvm_package_version "$f")
-                local pkgArch=$(__dnvm_package_arch "$f")
-                local pkgOs=$(__dnvm_package_os "$f")
+                [[ $PATH == *"$location/$f2/bin"* ]] && local active="  *"
+                local pkgRuntime=$(__dnvm_package_runtime "$f2")
+                local pkgName=$(__dnvm_package_name "$f2")
+                local pkgVersion=$(__dnvm_package_version "$f2")
+                local pkgArch=$(__dnvm_package_arch "$f2")
+                local pkgOs=$(__dnvm_package_os "$f2")
 
                 local alias=""
                 local delim=""
@@ -798,7 +823,8 @@ dnvm()
                 if [[ $2 == "-detailed" ]]; then
                     printf "$formatString" "$active" "$pkgVersion" "$pkgRuntime" "$pkgArch" "$pkgOs" "$formattedHome" "$alias"
                 else
-                    printf "$formatString" "$active" "$pkgVersion" "$pkgRuntime" "$pkgArch" "$pkgOs" "$alias"
+printf "t"
+                    #printf "$formatString" "$active" "$pkgVersion" "$pkgRuntime" "$pkgArch" "$pkgOs" "$alias"
                 fi
             done
 
