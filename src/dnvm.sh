@@ -747,13 +747,11 @@ dnvm()
             local runtimes=""
             for location in `echo $DNX_HOME | tr ":" "\n"`; do
                 location+="/runtimes"
-                local oruntimes="$(find $location -name "$searchGlob" \( -type d -or -type l \) -prune -exec basename {} \; | sort -t. -k2 -k3 -k4 -k1)"
+                local oruntimes="$(find $location -name "$searchGlob" \( -type d -or -type l \) -prune -exec basename {} \;)"
                 for v in `echo $oruntimes | tr "\n" " "`; do
                     runtimes+="$v:$location"$'\n'
                 done
-#                runtimes=$runtimes | sed 's/$/${location}/'
             done
-#printf "%s\n" "$runtimes"
 
             [[ -z $runtimes ]] && echo 'No runtimes installed. You can run `dnvm install latest` or `dnvm upgrade` to install a runtime.' && return
 
@@ -789,23 +787,19 @@ dnvm()
                 printf "$formatString" "------" "-------" "-------" "----" "---------------" "-----"
             fi
 
-echo -e "$runtimes"
-#            local formattedHome=`(echo $location | sed s=$HOME=~=g)`
-            for f in `echo -e "$runtimes"`; do
-                local location=`echo $f | tr ":" "\n"`
-                local f2="${location[0]}"
-printf "%s\n" "$f2"
-                location=${location[1]}
-#printf "%s\n" "$location"
+            for f in `echo -e "$runtimes" | sort -t. -k2 -k3 -k4 -k1`; do
+                local location=
+                IFS=':' read -a location <<< "$f"
+                f="${location[0]}"
+                location="${location[1]}"
                 local formattedHome=$location
-# | sed s=$HOME=~=g)`
                 local active=""
-                [[ $PATH == *"$location/$f2/bin"* ]] && local active="  *"
-                local pkgRuntime=$(__dnvm_package_runtime "$f2")
-                local pkgName=$(__dnvm_package_name "$f2")
-                local pkgVersion=$(__dnvm_package_version "$f2")
-                local pkgArch=$(__dnvm_package_arch "$f2")
-                local pkgOs=$(__dnvm_package_os "$f2")
+                [[ $PATH == *"$location/$f/bin"* ]] && local active="  *"
+                local pkgRuntime=$(__dnvm_package_runtime "$f")
+                local pkgName=$(__dnvm_package_name "$f")
+                local pkgVersion=$(__dnvm_package_version "$f")
+                local pkgArch=$(__dnvm_package_arch "$f")
+                local pkgOs=$(__dnvm_package_os "$f")
 
                 local alias=""
                 local delim=""
@@ -823,8 +817,7 @@ printf "%s\n" "$f2"
                 if [[ $2 == "-detailed" ]]; then
                     printf "$formatString" "$active" "$pkgVersion" "$pkgRuntime" "$pkgArch" "$pkgOs" "$formattedHome" "$alias"
                 else
-printf "t"
-                    #printf "$formatString" "$active" "$pkgVersion" "$pkgRuntime" "$pkgArch" "$pkgOs" "$alias"
+                    printf "$formatString" "$active" "$pkgVersion" "$pkgRuntime" "$pkgArch" "$pkgOs" "$alias"
                 fi
             done
 
