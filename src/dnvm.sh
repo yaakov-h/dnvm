@@ -816,11 +816,9 @@ dnvm()
             fi
 
             for f in `echo -e "$runtimes" | sort -t. -k2 -k3 -k4 -k1`; do
-                local location=
-                IFS=':' read -a location <<< "$f"
-                f="${location[0]}"
-                location="${location[1]}"
-                local formattedHome=$location
+                local location=`echo $f | sed 's/.*\([:]\)//'`
+                f=`echo $f | sed 's/\([:]\).*//'`
+                local formattedHome=`(echo $location | sed s=$HOME=~=g)`
                 local active=""
                 [[ $PATH == *"$location/$f/bin"* ]] && local active="  *"
                 local pkgRuntime=$(__dnvm_package_runtime "$f")
