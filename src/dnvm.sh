@@ -313,6 +313,9 @@ __dnvm_requested_version_or_alias() {
                 if [ "$arch" != "" ]; then
                     local pkgArchitecture="$arch"
                 fi
+                if [ "$os" == "" ]; then
+                    local pkgSystem=$(__dnvm_current_os)
+                fi
 
                 echo "$_DNVM_RUNTIME_PACKAGE_NAME-$runtime-$pkgSystem-$pkgArchitecture.$pkgVersion"
             fi
@@ -328,7 +331,6 @@ __dnvm_locate_runtime_bin_from_full_name() {
             echo "$v/runtimes/$runtimeFullName/bin" && return
         fi
     done
-#    [ -e "$_DNVM_USER_PACKAGES/$runtimeFullName/bin" ] && echo "$_DNVM_USER_PACKAGES/$runtimeFullName/bin" && return
 }
 
 __echo_art() {
@@ -570,9 +572,15 @@ dnvm()
                 local runtimeFullName=$(__dnvm_requested_version_or_alias "$versionOrAlias" "$runtime" "$arch" "$os")
                 local runtimeFolder="$runtimeDir/$runtimeFullName"
 
-                if [ -e "$runtimeFolder" ]; then
-                    echo "$runtimeFullName already installed"
-                else
+                local exist=0
+                for folder in `echo $DNX_HOME | tr ":" "\n"`; do
+                    if [ -e "$folder/runtimes/$runtimeFullName" ]; then
+                        echo "$runtimeFullName already installed in $folder"
+                        exist=1
+                    fi
+                done
+
+                if [[ $exist != 1 ]]; then
                     __dnvm_download "$runtimeFullName" "$downloadUrl" "$runtimeFolder" "$force"
                 fi
                 [[ $? == 1 ]] && return 1
