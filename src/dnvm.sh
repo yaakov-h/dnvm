@@ -859,7 +859,7 @@ dnvm()
 }
 
 # Add the home location's bin directory to the path
-export PATH="$DNX_HOME/bin:$PATH"
+export PATH="$DNX_USER_HOME/bin:$PATH"
 
 # Generate the command function using the constant defined above.
 $_DNVM_COMMAND_NAME list default >/dev/null && $_DNVM_COMMAND_NAME use default >/dev/null || true
