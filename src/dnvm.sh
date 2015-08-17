@@ -238,7 +238,7 @@ __dnvm_download() {
         return 1
     fi
 
-    mkdir -p "$runtimeFolder" > /dev/null 2>&1 || echo "Run as root to install globally" && return 1
+    mkdir -p "$runtimeFolder" > /dev/null 2>&1 || (echo "Run as root to install globally" && return 1)
 
     echo "Downloading $runtimeFullName from $DNX_ACTIVE_FEED"
     echo "Download: $downloadUrl"
