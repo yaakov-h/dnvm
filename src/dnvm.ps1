@@ -191,10 +191,9 @@ if(!$RuntimeHomes) {
 
 # Determine the default global installation directory (GlobalHome)
 if(!$GlobalHome) {
-    
-    $GlobalHome = "$env:ProgramData\$DefaultGlobalDirectoryName"
-    
-    if(!$GlobalHome) {
+    if($env:ProgramData) {
+        $GlobalHome = "$env:ProgramData\$DefaultGlobalDirectoryName"
+    } else {
         $GlobalHome = "$env:AllUsersProfile\$DefaultGlobalDirectoryName"
     }
 
@@ -443,13 +442,13 @@ filter List-Parts {
     if($items) {
     $aliasUsed = $items | ForEach-Object {
         if($_.Architecture -eq $parts2[3] -and $_.Runtime -eq $parts2[1] -and $_.OperatingSystem -eq $parts2[2] -and $_.Version -eq $parts1[1]) {
-            return "true";
+            return $true;
         }
-        return "false";
+        return $false;
     }
     }
 
-    if($aliasUsed.Contains("true")) {
+    if($aliasUsed -eq $true) {
         $fullAlias = ""
     }
 
@@ -1368,8 +1367,15 @@ function dnvm-install {
         Remove-Item $RuntimeFolder -Recurse -Force
     }
 
-    if((Test-Path (Join-Path $RuntimesDir $($runtimeInfo.RuntimeName))) -or (Test-Path (Join-Path $GlobalRuntimesDir $($runtimeInfo.RuntimeName)))) {
-        _WriteOut "'$($runtimeInfo.RuntimeName)' is already installed."
+    $installed=""
+    if(Test-Path (Join-Path $RuntimesDir $($runtimeInfo.RuntimeName))) {
+        $installed = Join-Path $RuntimesDir $($runtimeInfo.RuntimeName)
+    }
+    if(Test-Path (Join-Path $GlobalRuntimesDir $($runtimeInfo.RuntimeName))) {
+        $installed = Join-Path $RuntimesDir $($runtimeInfo.RuntimeName)
+    }
+    if($installed -ne "") {
+        _WriteOut "'$($runtimeInfo.RuntimeName)' is already installed in $installed."
         if($runtimeInfo.OS -eq "win") {
             dnvm-use $runtimeInfo.Version -Architecture:$runtimeInfo.Architecture -Runtime:$runtimeInfo.Runtime -Persistent:$Persistent -OS:$runtimeInfo.OS
         }
