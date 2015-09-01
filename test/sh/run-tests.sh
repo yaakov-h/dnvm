@@ -95,6 +95,9 @@ for shell in $TEST_SHELLS; do
         fi
     fi
     mkdir "$TEST_WORK_DIR/$shell"
+    mkdir "$TEST_WORK_DIR/$shell/runtimes"
+    mkdir "$TEST_WORK_DIR/${shell}_global"
+    mkdir "$TEST_WORK_DIR/${shell}_global/runtimes"
 
     export DNX_USER_HOME="$TEST_WORK_DIR/$shell"
     [ -d $DNX_USER_HOME ] || mkdir $DNX_USER_HOME
