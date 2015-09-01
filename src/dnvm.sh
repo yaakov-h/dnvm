@@ -747,7 +747,7 @@ dnvm()
 
             local runtimeFullName=$(__dnvm_requested_version_or_alias "$versionOrAlias" "$runtime" "$arch" "$os")
 
-            [[ ! -d "$_DNVM_USER_PACKAGES/$runtimeFullName" ]] && echo "$runtimeFullName is not an installed $_DNVM_RUNTIME_SHORT_NAME version" && return 1
+            ([[ ! -d "$_DNVM_USER_PACKAGES/$runtimeFullName" ]] && [[ ! -d "$_DNVM_GLOBAL_PACKAGES/$runtimeFullName" ]]) && echo "$runtimeFullName is not an installed $_DNVM_RUNTIME_SHORT_NAME version" && return 1
 
             local action="Setting"
             [[ -e "$_DNVM_ALIAS_DIR/$name.alias" ]] && action="Updating"
@@ -795,7 +795,7 @@ dnvm()
             local format="%-20s %s\n"
             if [ -d "$_DNVM_ALIAS_DIR" ]; then
                 for __dnvm_file in $(find "$_DNVM_ALIAS_DIR" -name *.alias); do
-                    if [ ! -d "$_DNVM_USER_PACKAGES/$(cat $__dnvm_file)" ]; then
+                    if [ ! -d "$_DNVM_USER_PACKAGES/$(cat $__dnvm_file)" ] && [ ! -d "$_DNVM_GLOBAL_PACKAGES/$(cat $__dnvm_file)" ]; then
                         arr[$i]="$(basename $__dnvm_file | sed 's/\.alias//')/missing/$(cat $__dnvm_file)"
                         runtimes="$runtimes $(cat $__dnvm_file)"
                     else
