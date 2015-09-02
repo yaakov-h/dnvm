@@ -218,6 +218,7 @@ __dnvm_download() {
     local downloadUrl="$2"
     local runtimeFolder="$3"
     local force="$4"
+    local acceptSudo="$5"
 
     local pkgName=$(__dnvm_package_name "$runtimeFullName")
     local pkgVersion=$(__dnvm_package_version "$runtimeFullName")
@@ -238,12 +239,27 @@ __dnvm_download() {
         return 1
     fi
 
-    mkdir -p "$runtimeFolder" > /dev/null 2>&1 || (echo "Run as root to install globally" && return 1)
+    local useSudo=
+    mkdir -p "$runtimeFolder" > /dev/null 2>&1
+    if [ ! -d $runtimeFolder ]; then
+	local answer=
+        if [ "$acceptSudo" == "0" ]; then
+            read -p "May use sudo (TODO: update text): " answer
+        else
+            answer="y"
+        fi
+        if [ ! `echo "$answer" | grep -iq "^y"` ]; then
+            useSudo=sudo
+            sudo mkdir -p "$runtimeFolder" > /dev/null 2>&1 || return 1
+        else
+            return 1
+        fi
+    fi
 
     echo "Downloading $runtimeFullName from $DNX_ACTIVE_FEED"
     echo "Download: $downloadUrl"
 
-    local httpResult=$(curl -L -D - "$downloadUrl" -o "$runtimeFile" -# | grep "^HTTP/1.1" | head -n 1 | sed "s/HTTP.1.1 \([0-9]*\).*/\1/")
+    local httpResult=$($useSudo curl -L -D - "$downloadUrl" -o "$runtimeFile" -# | grep "^HTTP/1.1" | head -n 1 | sed "s/HTTP.1.1 \([0-9]*\).*/\1/")
 
     if [[ $httpResult == "404" ]]; then
         printf "%b\n" "${Red}$runtimeFullName was not found in repository $DNX_ACTIVE_FEED ${RCol}"
@@ -252,13 +268,14 @@ __dnvm_download() {
     fi
     [[ $httpResult != "302" && $httpResult != "200" ]] && echo "${Red}HTTP Error $httpResult fetching $runtimeFullName from $DNX_ACTIVE_FEED ${RCol}" && return 1
 
-    __dnvm_unpack $runtimeFile $runtimeFolder
+    __dnvm_unpack $runtimeFile $runtimeFolder $useSudo
     return $?
 }
 
 __dnvm_unpack() {
     local runtimeFile="$1"
     local runtimeFolder="$2"
+    local useSudo=$3
 
     echo "Installing to $runtimeFolder"
 
@@ -267,24 +284,24 @@ __dnvm_unpack() {
         return 1
     fi
 
-    unzip $runtimeFile -d $runtimeFolder > /dev/null 2>&1
+    $useSudo unzip $runtimeFile -d $runtimeFolder > /dev/null 2>&1
 
-    [ -e "$runtimeFolder/[Content_Types].xml" ] && rm "$runtimeFolder/[Content_Types].xml"
+    [ -e "$runtimeFolder/[Content_Types].xml" ] && $useSudo rm "$runtimeFolder/[Content_Types].xml"
 
-    [ -e "$runtimeFolder/_rels/" ] && rm -rf "$runtimeFolder/_rels/"
+    [ -e "$runtimeFolder/_rels/" ] && $useSudo rm -rf "$runtimeFolder/_rels/"
 
-    [ -e "$runtimeFolder/package/" ] && rm -rf "$runtimeFolder/_package/"
+    [ -e "$runtimeFolder/package/" ] && $useSudo rm -rf "$runtimeFolder/_package/"
 
-    [ -e "$runtimeFile" ] && rm -f "$runtimeFile"
+    [ -e "$runtimeFile" ] && $useSudo rm -f "$runtimeFile"
 
     #Set dnx to be executable
     if [[ -s "$runtimeFolder/bin/dnx" ]]; then
-        chmod 775 "$runtimeFolder/bin/dnx"
+        $useSudo chmod 775 "$runtimeFolder/bin/dnx"
     fi
 
     #Set dnu to be executable
     if [[ -s "$runtimeFolder/bin/dnu" ]]; then
-        chmod 775 "$runtimeFolder/bin/dnu"
+        sudo chmod 775 "$runtimeFolder/bin/dnu"
     fi
 }
 
@@ -372,7 +389,7 @@ __dnvm_help() {
     __dnvm_description
    printf "%b\n" "${Cya}USAGE:${Yel} $_DNVM_COMMAND_NAME <command> [options] ${RCol}"
     echo ""
-   printf "%b\n" "${Yel}$_DNVM_COMMAND_NAME upgrade [-f|-force] [-u|-unstable] [-g|-global] ${RCol}"
+   printf "%b\n" "${Yel}$_DNVM_COMMAND_NAME upgrade [-f|-force] [-u|-unstable] [-g|-global] [-y]${RCol}"
     echo "  install latest $_DNVM_RUNTIME_SHORT_NAME from feed"
     echo "  adds $_DNVM_RUNTIME_SHORT_NAME bin to path of current command line"
     echo "  set installed version as default"
@@ -380,8 +397,9 @@ __dnvm_help() {
     echo "  -u|unstable       use unstable feed. Installs the $_DNVM_RUNTIME_SHORT_NAME from the unstable feed"
     echo "  -r|runtime        The runtime flavor to install [clr or coreclr] (default: clr)"
     echo "  -g|global         Installs the latest $_DNVM_RUNTIME_SHORT_NAME in the configured global $_DNVM_RUNTIME_SHORT_NAME  file location (default: /usr/local/lib/dnx current: $DNX_GLOBAL_HOME)"
+    echo "  -y                Accept use of sudo"
     echo ""
-   printf "%b\n" "${Yel}$_DNVM_COMMAND_NAME install <semver>|<alias>|<nupkg>|latest [-r <runtime>] [-OS <OS>] [-a|-alias <alias>] [-p|-persistent] [-f|-force] [-u|-unstable] [-g|-global]${RCol}"
+   printf "%b\n" "${Yel}$_DNVM_COMMAND_NAME install <semver>|<alias>|<nupkg>|latest [-r <runtime>] [-OS <OS>] [-a|-alias <alias>] [-p|-persistent] [-f|-force] [-u|-unstable] [-g|-global] [-y]${RCol}"
     echo "  <semver>|<alias>  install requested $_DNVM_RUNTIME_SHORT_NAME from feed"
     echo "  <nupkg>           install requested $_DNVM_RUNTIME_SHORT_NAME from local package on filesystem"
     echo "  latest            install latest version of $_DNVM_RUNTIME_SHORT_NAME from feed"
@@ -392,6 +410,7 @@ __dnvm_help() {
     echo "  -u|unstable       use unstable feed. Installs the $_DNVM_RUNTIME_SHORT_NAME from the unstable feed"
     echo "  -r|runtime        The runtime flavor to install [mono or coreclr] (default: mono)"
     echo "  -g|global         Installs to the configured global $_DNVM_RUNTIME_SHORT_NAME file location (default: /usr/local/lib/dnx current: $DNX_GLOBAL_HOME)"
+    echo "  -y                Accept use of sudo"
     echo ""
     echo "  adds $_DNVM_RUNTIME_SHORT_NAME bin to path of current command line"
     echo ""
@@ -477,6 +496,7 @@ dnvm()
             local runtime=
             local arch=
             local global=0
+            local acceptSudo=0
             while [ $# -ne 0 ]
             do
                 if [[ $1 == "-p" || $1 == "-persistent" ]]; then
@@ -494,6 +514,8 @@ dnvm()
                 elif [[ $1 == "-OS" ]]; then
                     local os=$2
                     shift
+		elif [[ $1 == "-y" ]]; then
+                    local acceptSudo=1
                 elif [[ $1 == "-arch" ]]; then
                     local arch=$2
                     shift
@@ -581,7 +603,7 @@ dnvm()
                 done
 
                 if [[ $exist != 1 ]]; then
-                    __dnvm_download "$runtimeFullName" "$downloadUrl" "$runtimeFolder" "$force"
+                    __dnvm_download "$runtimeFullName" "$downloadUrl" "$runtimeFolder" "$force" "$acceptSudo"
                 fi
                 [[ $? == 1 ]] && return 1
                 if [[ "$os" == $(__dnvm_current_os) ]]; then
@@ -605,7 +627,7 @@ dnvm()
                 else
                   mkdir -p "$runtimeFolder" > /dev/null 2>&1
                   cp -a "$versionOrAlias" "$runtimeFile"
-                  __dnvm_unpack "$runtimeFile" "$runtimeFolder"
+                  __dnvm_unpack "$runtimeFile" "$runtimeFolder" sudo
                   [[ $? == 1 ]] && return 1
                 fi
                 $_DNVM_COMMAND_NAME use "$runtimeVersion" "$persistent" -r "$runtimeClr"
