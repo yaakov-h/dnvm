@@ -197,5 +197,7 @@ Describe "install" -Tag "install" {
 
         ($__dnvmtest_out.Trim() -like "*Installing to $GlobalPath\runtimes\$runtimeName`r`nAdding $GlobalPath\runtimes\$runtimeName\bin to process PATH*") | Should Be $true
         "$GlobalPath\runtimes\$runtimeName" | Should Exist
+
+        del -rec -for $GlobalPath\runtimes\$runtimeName
     }
 }

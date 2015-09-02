@@ -723,7 +723,7 @@ function Get-RuntimePath($runtimeFullName) {
     foreach($RuntimeHome in $RuntimeHomes) {
         $runtimeBin = "$RuntimeHome\runtimes\$runtimeFullName\bin"
         _WriteDebug " Candidate $runtimeBin"
-        if (Test-Path "$runtimeBin") {
+        if (Test-Path $runtimeBin) {
             _WriteDebug " Found in $runtimeBin"
             return $runtimeBin
         }
@@ -1319,7 +1319,7 @@ function dnvm-install {
                 $Version = Get-PackageVersion $BaseName
             }
             
-            if([String]::IsNullOrEmpty($Architecture)) {
+            if([String]::IsNullOrEmpty($OS)) {
                 $OS = Get-PackageOS $BaseName
             }
         } else {
@@ -1353,10 +1353,12 @@ function dnvm-install {
     _WriteDebug "Version: $($runtimeInfo.Version)"
     _WriteDebug "OS: $($runtimeInfo.OS)"
 
+    $installDir = $RuntimesDir
     if (!$Global) {
         $RuntimeFolder = Join-Path $RuntimesDir $($runtimeInfo.RuntimeName)
     }
     else {
+        $installDir = $GlobalRuntimesDir
         $RuntimeFolder = Join-Path $GlobalRuntimesDir $($runtimeInfo.RuntimeName)
     }
 
@@ -1372,7 +1374,7 @@ function dnvm-install {
         $installed = Join-Path $RuntimesDir $($runtimeInfo.RuntimeName)
     }
     if(Test-Path (Join-Path $GlobalRuntimesDir $($runtimeInfo.RuntimeName))) {
-        $installed = Join-Path $RuntimesDir $($runtimeInfo.RuntimeName)
+        $installed = Join-Path $GlobalRuntimesDir $($runtimeInfo.RuntimeName)
     }
     if($installed -ne "") {
         _WriteOut "'$($runtimeInfo.RuntimeName)' is already installed in $installed."
@@ -1386,7 +1388,7 @@ function dnvm-install {
         $Runtime = $runtimeInfo.Runtime
         $OS = $runtimeInfo.OS
         
-        $TempFolder = Join-Path $RuntimesDir "temp" 
+        $TempFolder = Join-Path $installDir "temp" 
         $UnpackFolder = Join-Path $TempFolder $runtimeFullName
         $DownloadFile = Join-Path $UnpackFolder "$runtimeFullName.nupkg"
 
