@@ -213,6 +213,23 @@ __dnvm_update_self() {
     source "$dnvmFileLocation"
 }
 
+__dnvm_promptSudo() {
+    local acceptSudo="$1"
+
+    local answer=
+    if [ "$acceptSudo" == "0" ]; then
+        echo "In order to install dnx globally, dnvm will have to temporarily run as root."
+        read -p "You may be prompted for your password via 'sudo' during this process. Is this Ok? (y/N) " answer
+    else
+        answer="y"
+    fi
+    if echo $answer | grep -iq "^y" ; then
+        return 1
+    else
+        return 0
+    fi
+}
+
 __dnvm_download() {
     local runtimeFullName="$1"
     local downloadUrl="$2"
@@ -242,21 +259,13 @@ __dnvm_download() {
     local useSudo=
     mkdir -p "$runtimeFolder" > /dev/null 2>&1
     if [ ! -d $runtimeFolder ]; then
-	local answer=
-        if [ "$acceptSudo" == "0" ]; then
-            echo "In order to install dnx globally, dnvm will have to temporarily run as root."
-            read -p "You may be prompted for your password via 'sudo' during this process. Is this alright (y/n): " answer
-        else
-            answer="y"
-        fi
-        if echo $answer | grep -iq "^y" ; then
+        if ! __dnvm_promptSudo $acceptSudo ; then
             useSudo=sudo
             sudo mkdir -p "$runtimeFolder" > /dev/null 2>&1 || return 1
         else
             return 1
         fi
     fi
-
     echo "Downloading $runtimeFullName from $DNX_ACTIVE_FEED"
     echo "Download: $downloadUrl"
 
@@ -302,7 +311,7 @@ __dnvm_unpack() {
 
     #Set dnu to be executable
     if [[ -s "$runtimeFolder/bin/dnu" ]]; then
-        sudo chmod 775 "$runtimeFolder/bin/dnu"
+        $useSudo chmod 775 "$runtimeFolder/bin/dnu"
     fi
 }
 
@@ -398,7 +407,7 @@ __dnvm_help() {
     echo "  -u|unstable       use unstable feed. Installs the $_DNVM_RUNTIME_SHORT_NAME from the unstable feed"
     echo "  -r|runtime        The runtime flavor to install [clr or coreclr] (default: clr)"
     echo "  -g|global         Installs the latest $_DNVM_RUNTIME_SHORT_NAME in the configured global $_DNVM_RUNTIME_SHORT_NAME  file location (default: /usr/local/lib/dnx current: $DNX_GLOBAL_HOME)"
-    echo "  -y                Accept use of sudo"
+    echo "  -y                Assume Yes to all queries and do not prompt"
     echo ""
    printf "%b\n" "${Yel}$_DNVM_COMMAND_NAME install <semver>|<alias>|<nupkg>|latest [-r <runtime>] [-OS <OS>] [-a|-alias <alias>] [-p|-persistent] [-f|-force] [-u|-unstable] [-g|-global] [-y]${RCol}"
     echo "  <semver>|<alias>  install requested $_DNVM_RUNTIME_SHORT_NAME from feed"
@@ -411,7 +420,7 @@ __dnvm_help() {
     echo "  -u|unstable       use unstable feed. Installs the $_DNVM_RUNTIME_SHORT_NAME from the unstable feed"
     echo "  -r|runtime        The runtime flavor to install [mono or coreclr] (default: mono)"
     echo "  -g|global         Installs to the configured global $_DNVM_RUNTIME_SHORT_NAME file location (default: /usr/local/lib/dnx current: $DNX_GLOBAL_HOME)"
-    echo "  -y                Accept use of sudo"
+    echo "  -y                Assume Yes to all queries and do not prompt"
     echo ""
     echo "  adds $_DNVM_RUNTIME_SHORT_NAME bin to path of current command line"
     echo ""
@@ -626,9 +635,18 @@ dnvm()
                 if [ -e "$runtimeFolder" ]; then
                   echo "$runtimeFullName already installed"
                 else
+                  local useSudo=
                   mkdir -p "$runtimeFolder" > /dev/null 2>&1
+                  if [ ! -d $runtimeFolder ]; then
+                     if ! __dnvm_promptSudo $acceptSudo ; then
+                         useSudo=sudo
+                         sudo mkdir -p "$runtimeFolder" > /dev/null 2>&1 || return 1
+                     else
+                         return 1
+                     fi
+                  fi
                   cp -a "$versionOrAlias" "$runtimeFile"
-                  __dnvm_unpack "$runtimeFile" "$runtimeFolder" sudo
+                  __dnvm_unpack "$runtimeFile" "$runtimeFolder" $useSudo
                   [[ $? == 1 ]] && return 1
                 fi
                 $_DNVM_COMMAND_NAME use "$runtimeVersion" "$persistent" -r "$runtimeClr"
