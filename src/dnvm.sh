@@ -244,11 +244,12 @@ __dnvm_download() {
     if [ ! -d $runtimeFolder ]; then
 	local answer=
         if [ "$acceptSudo" == "0" ]; then
-            read -p "May use sudo (TODO: update text): " answer
+            echo "In order to install dnx globally, dnvm will have to temporarily run as root."
+            read -p "You may be prompted for your password via 'sudo' during this process. Is this alright (y/n): " answer
         else
             answer="y"
         fi
-        if [ ! `echo "$answer" | grep -iq "^y"` ]; then
+        if echo $answer | grep -iq "^y" ; then
             useSudo=sudo
             sudo mkdir -p "$runtimeFolder" > /dev/null 2>&1 || return 1
         else
