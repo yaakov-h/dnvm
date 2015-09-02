@@ -193,10 +193,13 @@ Describe "install" -Tag "install" {
         $runtimeName = GetRuntimeName "CLR" "x86"
         if(Test-Path $UserPath\runtimes\$runtimeName) { del -rec -for $UserPath\runtimes\$runtimeName }
         if(Test-Path $GlobalPath\runtimes\$runtimeName) { del -rec -for $GlobalPath\runtimes\$runtimeName }
-        __dnvmtest_run install $TestRuntimeVersion -arch x86 -r "CLR" -g | Out-Null
 
-        ($__dnvmtest_out.Trim() -like "*Installing to $GlobalPath\runtimes\$runtimeName`r`nAdding $GlobalPath\runtimes\$runtimeName\bin to process PATH*") | Should Be $true
-        "$GlobalPath\runtimes\$runtimeName" | Should Exist
+        It "installs runtime to global install location" {
+            __dnvmtest_run install $TestRuntimeVersion -arch x86 -r "CLR" -g | Out-Null
+
+            ($__dnvmtest_out.Trim() -like "*Installing to $GlobalPath\runtimes\$runtimeName`r`nAdding $GlobalPath\runtimes\$runtimeName\bin to process PATH*") | Should Be $true
+            "$GlobalPath\runtimes\$runtimeName" | Should Exist
+        }
 
         del -rec -for $GlobalPath\runtimes\$runtimeName
     }
